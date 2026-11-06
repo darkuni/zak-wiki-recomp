@@ -20,6 +20,16 @@ struct HostInput {
     float px = 0.5f, py = 0.5f;
     bool pvalid = false;         // false = pointing off screen
     uint32_t mouse = 0;          // MOUSE_* buttons held
-    bool reload = false;         // "shoot off screen" held (middle mouse, R, gamepad LB/LT)
+    bool reload = false;         // unused here (TARGET: Terror's "shoot off screen")
+    // Wii Remote motion, KPAD convention: acceleration in g with gravity included, remote frame
+    // x = right, y = up out of the buttons, z = forward (toward the TV). Resting, pointing at the
+    // TV: (0, -1, 0). Simulated from mouse/keyboard/gamepad, or read from a real Wii Remote.
+    float acc[3] = {0.f, -1.f, 0.f};
+    float roll = 0.f;            // twist (radians, + = clockwise seen from behind), for KPAD horizon
+    // a real Wii Remote over Bluetooth (wiimote.cpp)
+    bool remote = false;
+    uint32_t remote_buttons = 0; // WPAD button bits
+    bool remote_ir = false;      // it sees the sensor bar: rpx/rpy is its pointer
+    float rpx = 0.5f, rpy = 0.5f;
 };
 extern HostInput g_host_input;

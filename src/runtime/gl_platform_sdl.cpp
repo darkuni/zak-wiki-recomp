@@ -48,6 +48,7 @@ static thread_local bool t_current = false;
 static std::atomic<int> g_ui_state{0};            // 0 starting, 1 ready, -1 failed
 std::atomic<unsigned long> g_ui_polls{0};         // UI thread heartbeat (status line)
 static bool ui_create() {
+    SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_WII, "0");   // the Wii Remote is read directly (wiimote.cpp)
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER | SDL_INIT_EVENTS) != 0) {
         fprintf(stderr, "[sdl] init failed: %s\n", SDL_GetError());
         return false;
@@ -139,6 +140,79 @@ static void picture_rect(int ww, int wh, float& dx, float& dy, float& dw, float&
     if (dh > wh) { dh = (float)wh; dw = (float)wh * an / ad; }
     dx = (ww - dw) / 2; dy = (wh - dh) / 2;
 }
+// Simulated Wii Remote motion (Zack & Wiki turns levers, keys and saws with the remote).
+//   Mouse: hold the middle button (or Ctrl) and move the mouse: left/right twists the remote,
+//          up/down tilts its tip; quick moves are swings (the accelerometer feels them).
+//          Wheel up/down = thrust the remote toward the screen / pull it back toward you.
+//   Keys:  Q/E twist left/right, R/F tilt up/down, hold Shift to shake.
+//   Pad:   right stick twists (left/right) and tilts (up/down); hold LT (or LB) to shake.
+// Output: g_host_input.acc (KPAD convention, gravity sense) and .roll. A real Wii Remote, when
+// connected, supplies these itself (wiimote.cpp).
+void wiimote_poll();
+static int g_wheel = 0;
+static float g_impulse_t = 0, g_impulse_dir = 0;
+static bool update_motion(float dt, bool focus, Uint32 mb, float srx, float sry) {
+    static bool mode = false;
+    static float roll = 0, pitch = 0;           // degrees
+    static float vx = 0, vy = 0, ax = 0, ay = 0; // smoothed mouse velocity (px/s) and acceleration
+    static float t = 0;
+    t += dt;
+    const Uint8* k = SDL_GetKeyboardState(nullptr);
+    bool want = focus && !overlay_open() && ((mb & SDL_BUTTON(SDL_BUTTON_MIDDLE)) || k[SDL_SCANCODE_LCTRL] || k[SDL_SCANCODE_RCTRL]);
+    if (want != mode) {
+        mode = want;
+        SDL_SetRelativeMouseMode(want ? SDL_TRUE : SDL_FALSE);
+        SDL_GetRelativeMouseState(nullptr, nullptr);
+        vx = vy = ax = ay = 0;
+    }
+    float mdx = 0, mdy = 0;
+    if (mode) { int a, b; SDL_GetRelativeMouseState(&a, &b); mdx = (float)a; mdy = (float)b; }
+    const float sens = g_cfg.motion_sensitivity;
+    // orientation
+    float rt = 0, pt = 0; bool held = false;
+    if (k[SDL_SCANCODE_Q]) { rt -= 75; held = true; }
+    if (k[SDL_SCANCODE_E]) { rt += 75; held = true; }
+    if (k[SDL_SCANCODE_R]) { pt += 70; held = true; }
+    if (k[SDL_SCANCODE_F]) { pt -= 70; held = true; }
+    if (srx || sry) { rt += srx * 85; pt += sry * 75; held = true; }
+    if (mode) {
+        roll += mdx * 0.35f * sens;
+        pitch -= mdy * 0.35f * sens;
+    } else {
+        float tgt_r = held ? rt : 0, tgt_p = held ? pt : 0;   // keys/stick: go there; nothing: back to level
+        float f = std::min(1.f, dt * 10.f);
+        roll += (tgt_r - roll) * f; pitch += (tgt_p - pitch) * f;
+    }
+    roll = std::max(-120.f, std::min(120.f, roll));
+    pitch = std::max(-85.f, std::min(85.f, pitch));
+    // swings: the mouse's acceleration while turning (screen right = remote right, screen down = remote down)
+    if (dt > 0) {
+        float f = std::min(1.f, dt / 0.03f);
+        float nvx = vx + (mdx / dt - vx) * f, nvy = vy + (mdy / dt - vy) * f;
+        ax += ((nvx - vx) / dt - ax) * f; ay += ((nvy - vy) / dt - ay) * f;
+        vx = nvx; vy = nvy;
+    }
+    const float kacc = 2.5e-5f * sens;   // g per px/s^2
+    float lin[3] = {ax * kacc, -ay * kacc, 0.f};
+    // wheel: thrust toward the screen / pull back (an impulse: speed up, then stop)
+    if (g_wheel) { g_impulse_dir = g_wheel > 0 ? 1.f : -1.f; g_impulse_t = 0.14f; g_wheel = 0; }
+    if (g_impulse_t > 0) { lin[2] += g_impulse_dir * (g_impulse_t > 0.07f ? 3.f : -2.f); g_impulse_t -= dt; }
+    // shake
+    bool shake = k[SDL_SCANCODE_LSHIFT] || k[SDL_SCANCODE_RSHIFT] ||
+                 (g_pad && (SDL_GameControllerGetAxis(g_pad, SDL_CONTROLLER_AXIS_TRIGGERLEFT) > 16000 ||
+                            SDL_GameControllerGetButton(g_pad, SDL_CONTROLLER_BUTTON_LEFTSHOULDER)));
+    if (shake && !overlay_open()) { lin[0] += 3.f * std::sin(t * 2 * 3.14159f * 7.f); lin[1] += 2.5f * std::sin(t * 2 * 3.14159f * 7.f + 1.3f); }
+    for (float& v : lin) v = std::max(-3.5f, std::min(3.5f, v));
+    if (!g_host_input.remote) {
+        float r = roll * 3.14159265f / 180.f, p = pitch * 3.14159265f / 180.f;
+        g_host_input.acc[0] = std::sin(r) * std::cos(p) - lin[0];
+        g_host_input.acc[1] = -std::cos(r) * std::cos(p) - lin[1];
+        g_host_input.acc[2] = -std::sin(p) - lin[2];
+        g_host_input.roll = r;
+    }
+    return mode;
+}
+
 static void update_pointer(float lx, float ly, float rx, float ry) {
     static int last_mx = -1, last_my = -1;
     static bool use_pad = false;
@@ -157,8 +231,10 @@ static void update_pointer(float lx, float ly, float rx, float ry) {
         if (mb & SDL_BUTTON(SDL_BUTTON_RIGHT)) m |= MOUSE_R;
         if (mb & SDL_BUTTON(SDL_BUTTON_MIDDLE)) m |= MOUSE_M;
     }
+    bool motion = update_motion(dt, focus, mb, rx, ry);   // simulated Wii Remote motion (right stick, keys, mouse)
+    if (motion) { mx = last_mx; my = last_my; }            // the pointer stays put while the mouse turns the remote
     if (mx != last_mx || my != last_my) { use_pad = false; last_mx = mx; last_my = my; }
-    float sx = std::fabs(rx) > std::fabs(lx) ? rx : lx, sy = std::fabs(ry) > std::fabs(ly) ? ry : ly;
+    float sx = lx, sy = ly;   // the right stick turns the remote instead
     if (sx || sy) {
         if (!use_pad) { cx = g_host_input.pvalid ? g_host_input.px : 0.5f; cy = g_host_input.pvalid ? g_host_input.py : 0.5f; }
         use_pad = true;
@@ -176,14 +252,9 @@ static void update_pointer(float lx, float ly, float rx, float ry) {
         g_host_input.pvalid = focus && u >= 0 && u <= 1 && v >= 0 && v <= 1;
     }
     g_host_input.mouse = m;
-    {
-        const Uint8* k = SDL_GetKeyboardState(nullptr);
-        bool pad_reload = g_pad && (SDL_GameControllerGetButton(g_pad, SDL_CONTROLLER_BUTTON_LEFTSHOULDER) ||
-                                    SDL_GameControllerGetAxis(g_pad, SDL_CONTROLLER_AXIS_TRIGGERLEFT) > 16000);
-        g_host_input.reload = (m & MOUSE_M) || k[SDL_SCANCODE_R] || pad_reload;
-    }
+    if (motion) g_host_input.mouse &= ~MOUSE_M;
     // the game draws its own crosshair: hide the system cursor over the picture
-    bool show = (overlay_open() || !g_host_input.pvalid) && !use_pad;
+    bool show = (overlay_open() || !g_host_input.pvalid) && !use_pad && !motion;
     static int shown = -1;
     if (shown != (int)show) { SDL_ShowCursor(show ? SDL_ENABLE : SDL_DISABLE); shown = show; }
 }
@@ -314,6 +385,7 @@ static bool ui_poll() {
                 if (key >= 0) apply_action(overlay_input(key));
             }
         }
+        if (e.type == SDL_MOUSEWHEEL && !overlay_open()) g_wheel += e.wheel.y;
         if (e.type == SDL_CONTROLLERDEVICEADDED && !g_pad) {
             g_pad = SDL_GameControllerOpen(e.cdevice.which);
             if (g_pad) fprintf(stderr, "[input] controller: %s\n", SDL_GameControllerName(g_pad));
@@ -323,6 +395,7 @@ static bool ui_poll() {
             SDL_GameControllerClose(g_pad); g_pad = nullptr;
         }
     }
+    wiimote_poll();
     update_input();
     return true;
 }

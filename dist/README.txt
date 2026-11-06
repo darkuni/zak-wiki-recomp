@@ -14,10 +14,25 @@ Requirements: 64-bit Windows 10/11, a GPU with OpenGL 3.3.
 Controls (the mouse is the Wii Remote pointer)
   Mouse:    point = Wii Remote pointer, left button = A, right button = B ("Mouse buttons" in the
             settings menu, or controls = mouse_swap in zackwiki.ini, swaps them)
-  Gamepad:  either stick = move the pointer, A = A, B/RT = B, d-pad = d-pad, X/Y = 1/2
+  Gamepad:  left stick = move the pointer, A = A, B/RT/RB = B, d-pad = d-pad, X/Y = 1/2
   Keyboard: X = A, Z/Space = B, arrows = d-pad, A/S = 1/2
-  All:      Start/Enter = +, Back/Backspace = -, Guide/H = HOME
-  Not yet:  Wii Remote motions (tilting, twisting, shaking the remote for items) - test build.
+
+Wii Remote motions (levers, keys, saws, bells... the game shows the motion it wants)
+  Mouse:    hold the middle button (or Ctrl) and move the mouse: left/right twists the remote,
+            up/down tilts its tip up/down; fast moves are swings. Release = back to level.
+            Wheel up/down = thrust the remote toward the screen / pull it back.
+            (motion_sensitivity in zackwiki.ini sets the turning speed)
+  Gamepad:  right stick = twist (left/right) and tilt (up/down), LT/LB = shake
+  Keyboard: Q/E = twist left/right, R/F = tilt up/down, Shift = shake
+
+Real Wii Remote (optional)
+  Pair it with Windows: Settings > Bluetooth > Add device, press the red SYNC button under the
+  battery cover, pick "Nintendo RVL-CNT-01" (skip/leave the PIN empty). A Mayflash DolphinBar
+  in mode 4 works too. Start the game (or wait a few seconds): LED 1 lights up and the remote's
+  buttons, motions and pointer work. The pointer needs a powered sensor bar (or the DolphinBar)
+  under or over the screen; ir_span in zackwiki.ini sets how far you move it to cross the screen.
+  wiimote = 0 in zackwiki.ini turns it off.
+  This is a test build: tell us on GitHub if your remote is not found or a motion does not work.
 
 Keys
   F1 / Esc (or Start+Back on a gamepad)  settings menu (resolution, widescreen, vsync, MSAA,

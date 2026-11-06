@@ -26,7 +26,14 @@ Same recompiler and runtime as TARGET: Terror and Geometry Wars: Galaxies.
 ## Input
 - KPADRead (pos @0x20, dpd_valid_fg @0x5E, core buttons), one new sample per video frame (see TARGET: Terror).
   Mouse = pointer, left = A, right = B.
-- TODO: Wii Remote motions (acc @0x0C) for the item gestures.
+- Motion: acc @0x0C (g, x right / y up / z toward the screen, resting (0,-1,0)), acc_value @0x18, acc_speed @0x1C,
+  horizon @0x34 (twist), acc_vertical @0x54 (tilt), all from g_host_input.acc. Simulated in gl_platform_sdl.cpp
+  update_motion (orientation -> gravity in the remote's frame, minus linear acceleration from mouse swings, wheel
+  thrusts and shaking).
+- Real Wii Remote: wiimote.cpp talks HID directly (SDL_hid_*; SDL's own Wii driver is switched off): reads the
+  accelerometer calibration (EEPROM 0x16), enables the IR camera (extended mode), report 0x33. Buttons are ORed
+  in, IR midpoint (roll-compensated) replaces the mouse pointer while the sensor bar is seen.
+- Letterbox: the scissor offset (BP 0x59) also offsets the viewport (cut-scene bars were drawn 1 line off).
 
 ## Testing
 - `POINTER=x,y` fixes the pointer, `AUTOPRESS_FRAMES=1 AUTOPRESS=A@400-406,...` presses buttons, `SHOT_EVERY`,

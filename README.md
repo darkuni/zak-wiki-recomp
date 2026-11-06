@@ -9,8 +9,10 @@ that replaces the Wii hardware, IOS and the DSP.
 ## Status
 
 Work in progress. Boots through the safety screen, Capcom logo, title, TV settings check, save select and the story
-intro (Linux headless tests). The mouse is the Wii Remote pointer (left = A, right = B). Wii Remote motions (tilting,
-twisting, shaking the remote to use items) are not mapped yet.
+intro (Linux headless tests). The mouse is the Wii Remote pointer (left = A, right = B). Wii Remote motions (twisting,
+tilting, swinging, shaking) are simulated with the mouse (hold the middle button or Ctrl), the keyboard (Q/E, R/F,
+Shift) or a gamepad's right stick and LT, and a real Wii Remote paired over Bluetooth (or on a DolphinBar in mode 4)
+works directly: buttons, motion and, with a sensor bar, the pointer.
 
 ## Download
 

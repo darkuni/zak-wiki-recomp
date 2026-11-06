@@ -157,10 +157,11 @@ void hle_WPADProbe(Ctx* c) {
 
 // Light gun (Wii Zapper / pointing Wii Remote). The game reads KPADRead and uses pos (0x20),
 // dpd_valid_fg (0x5E) and the core buttons: B = trigger, A, d-pad, +/-, 1/2, HOME.
-//   Mouse: position = pointer, left = A, right = B (swapped with controls = mouse_swap),
-//          middle = B pointing off screen. Moving off the picture = pointing off screen.
-//   Gamepad: either stick moves the pointer, RT/RB/B = trigger, A = A, LB/LT = reload, d-pad = d-pad,
-//          X/Y = 1/2. Keyboard: arrows = d-pad, Space/Z = trigger (B), X = A, R = reload, A/S = 1/2.
+//   Mouse: position = pointer, left = A, right = B (swapped with controls = mouse_swap).
+//          Moving off the picture = pointing off screen. Motions: see update_motion (gl_platform_sdl.cpp).
+//   Gamepad: left stick moves the pointer, RT/RB/B = B, A = A, d-pad = d-pad, X/Y = 1/2,
+//          right stick = twist/tilt the remote, LT/LB = shake.
+//   Keyboard: arrows = d-pad, Space/Z = B, X = A, A/S = 1/2, Q/E twist, R/F tilt, Shift shake.
 //   Both: Start/Enter = +, Back/Backspace = -, Guide/H = HOME.
 // Test runs: POINTER=x,y (0..1 in the picture) fixes the pointer; AUTOPRESS presses buttons.
 static bool g_dump_pointer = getenv("POINTERLOG") != nullptr;
@@ -171,7 +172,6 @@ static uint32_t lightgun_buttons() {
     bool swap = g_cfg.controls == "mouse_swap";
     if (in.mouse & (swap ? MOUSE_R : MOUSE_L)) m |= W_A;   // Zack & Wiki: point and press A
     if (in.mouse & (swap ? MOUSE_L : MOUSE_R)) m |= W_B;
-    if (in.reload) m |= W_B;
     if (b & (IN_R2 | IN_R1 | IN_EAST)) m |= W_B;
     if (b & IN_SOUTH) m |= W_A;
     if (b & IN_WEST) m |= W_1;
@@ -206,16 +206,31 @@ void hle_KPADRead(Ctx* c) {
     const HostInput& in = g_host_input;
     float px = in.px, py = in.py;
     bool valid = in.pvalid;
+    if (in.remote) {   // a real Wii Remote: its buttons, and its IR camera when it sees the sensor bar
+        hold |= in.remote_buttons;
+        if (in.remote_ir) { px = in.rpx; py = in.rpy; valid = true; }
+    }
     static const char* fixed = getenv("POINTER");
     if (fixed) { valid = sscanf(fixed, "%f,%f", &px, &py) == 2; }
-    if (in.reload) valid = false;   // reload = pull the trigger pointing away from the screen
     float x = px * 2.f - 1.f, y = py * 2.f - 1.f;   // KPAD pos: -1..1 across the picture, y down
     for (uint32_t i = 0; i < 0x84; i++) W8(buf + i, 0);
     W32(buf + 0x00, hold);
     W32(buf + 0x04, hold & ~prev);
     W32(buf + 0x08, prev & ~hold);
-    WF32(buf + 0x0C, 0.0); WF32(buf + 0x10, -1.0); WF32(buf + 0x14, 0.0);   // acc: resting, pointing at the TV
-    WF32(buf + 0x18, 1.0);
+    // motion: acc in g (x right, y up, z toward the screen; resting = (0, -1, 0)), its length, its
+    // change since the last sample, the horizon (twist) and acc_vertical (tilt)
+    static float pa[3] = {0.f, -1.f, 0.f};
+    const float* a = in.acc;
+    float alen = std::sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]);
+    float da = std::sqrt((a[0] - pa[0]) * (a[0] - pa[0]) + (a[1] - pa[1]) * (a[1] - pa[1]) + (a[2] - pa[2]) * (a[2] - pa[2]));
+    WF32(buf + 0x0C, a[0]); WF32(buf + 0x10, a[1]); WF32(buf + 0x14, a[2]);
+    WF32(buf + 0x18, alen);
+    WF32(buf + 0x1C, da);
+    pa[0] = a[0]; pa[1] = a[1]; pa[2] = a[2];
+    float hx = -a[1], hy = a[0], hl = std::sqrt(hx * hx + hy * hy);
+    if (hl < 1e-3f) { hx = 1; hy = 0; } else { hx /= hl; hy /= hl; }
+    float vx = std::sqrt(a[0] * a[0] + a[1] * a[1]), vy = a[2], vl = std::sqrt(vx * vx + vy * vy);
+    if (vl < 1e-3f) { vx = 1; vy = 0; } else { vx /= vl; vy /= vl; }
     if (valid) {
         WF32(buf + 0x20, x); WF32(buf + 0x24, y);
         WF32(buf + 0x28, x - ppx); WF32(buf + 0x2C, y - ppy);
@@ -223,8 +238,8 @@ void hle_KPADRead(Ctx* c) {
         ppx = x; ppy = y;
         WF32(buf + 0x48, 2.0f);                // dist: about 2 m from the TV
     }
-    WF32(buf + 0x34, 1.0);                     // horizon
-    WF32(buf + 0x58, -1.0);
+    WF32(buf + 0x34, hx); WF32(buf + 0x38, hy);   // horizon
+    WF32(buf + 0x54, vx); WF32(buf + 0x58, vy);   // acc_vertical
     W8(buf + 0x5C, 0);                         // WPAD_DEV_CORE
     W8(buf + 0x5D, 0);                         // WPAD_ERR_NONE
     W8(buf + 0x5E, valid ? 2 : 0);             // both IR points seen / none

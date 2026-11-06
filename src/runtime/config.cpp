@@ -22,6 +22,9 @@ static void set(const std::string& k, const std::string& v) {
     else if (k == "swap_ab_xy") g_cfg.swap_ab_xy = b();
     else if (k == "speed") { int a = atoi(v.c_str()); g_cfg.speed = a < 1 ? 1 : a > 8 ? 8 : a; }
     else if (k == "smooth_textures") g_cfg.smooth_textures = b();
+    else if (k == "wiimote") g_cfg.wiimote = b();
+    else if (k == "ir_span") { float f = (float)atof(v.c_str()); g_cfg.ir_span = f < 0.2f ? 0.2f : f > 1.5f ? 1.5f : f; }
+    else if (k == "motion_sensitivity") { float f = (float)atof(v.c_str()); g_cfg.motion_sensitivity = f < 0.2f ? 0.2f : f > 5.f ? 5.f : f; }
     else if (k == "msaa") { int a = atoi(v.c_str()); g_cfg.msaa = a >= 8 ? 8 : a >= 4 ? 4 : a >= 2 ? 2 : 1; }
 }
 
@@ -77,7 +80,6 @@ void config_save() {
         "fullscreen = %d\n"
         "window_scale = %d\n"
         "; Mouse buttons: mouse (left = A, right = B) or mouse_swap (left = B, right = A)\n"
-        "; Pick the same grip in the game's menu.\n"
         "controls = %s\n"
         "; Gamepad: swap A<->B and X<->Y (use the buttons by position, Nintendo style)\n"
         "swap_ab_xy = %d\n"
@@ -91,8 +93,16 @@ void config_save() {
         "msaa = %d\n"
         "; Game speed: 1 = normal ... 8 = eight times (as far as the PC keeps up).\n"
         "; The game logic is tied to its frame rate, so this is fast-forward. Hold Tab (or click the right stick) for 4x (or double the set speed, up to 8x).\n"
-        "speed = %d\n",
+        "speed = %d\n"
+        "; Use a real Wii Remote when one is paired over Bluetooth (or on a DolphinBar in mode 4): 1 = yes\n"
+        "wiimote = %d\n"
+        "; Real Wii Remote pointer: how much of the IR camera's view covers the screen (smaller = less\n"
+        "; arm movement). 0.55 suits a sensor bar about 2-3 m away.\n"
+        "ir_span = %.2f\n"
+        "; Simulated motions (hold the middle mouse button or Ctrl and move the mouse): turning speed\n"
+        "motion_sensitivity = %.2f\n",
         g_cfg.resolution_scale, g_cfg.widescreen, g_cfg.vsync, g_cfg.fullscreen, g_cfg.window_scale,
-        g_cfg.controls.c_str(), g_cfg.swap_ab_xy, g_cfg.show_perf, g_cfg.anisotropy, g_cfg.smooth_textures, g_cfg.msaa, g_cfg.speed);
+        g_cfg.controls.c_str(), g_cfg.swap_ab_xy, g_cfg.show_perf, g_cfg.anisotropy, g_cfg.smooth_textures, g_cfg.msaa, g_cfg.speed,
+        g_cfg.wiimote, g_cfg.ir_span, g_cfg.motion_sensitivity);
     fclose(w);
 }

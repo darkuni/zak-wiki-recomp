@@ -286,8 +286,12 @@ static void setup_vertex_pipeline(int vat) {
     d.ortho = g_gx.xf_reg[0x26] != 0;
     float wd = xff(0x101A), ht = xff(0x101B), zr = xff(0x101C), xo = xff(0x101D), yo = xff(0x101E), fz = xff(0x101F);
     const float S = 16777216.f;
-    d.vx0 = (xo - 342.f) / (EFB_W / 2.f) - 1.f; d.vx1 = wd / (EFB_W / 2.f);
-    d.vy0 = 1.f - (yo - 342.f) / (EFB_H / 2.f); d.vy1 = -(ht / (EFB_H / 2.f));
+    // the scissor offset (BP 0x59, default 342/342) also moves the viewport: EFB = screen - offset.
+    // Zack & Wiki renders with a 16-line offset (viewport centre 240 on a 448-line EFB).
+    float ox = 342.f, oy = 342.f;
+    if (g_gx.bp[0x59]) { ox = (float)((g_gx.bp[0x59] & 1023) * 2); oy = (float)(((g_gx.bp[0x59] >> 10) & 1023) * 2); }
+    d.vx0 = (xo - ox) / (EFB_W / 2.f) - 1.f; d.vx1 = wd / (EFB_W / 2.f);
+    d.vy0 = 1.f - (yo - oy) / (EFB_H / 2.f); d.vy1 = -(ht / (EFB_H / 2.f));
     d.vz0 = 2.f * fz / S - 1.f; d.vz1 = 2.f * zr / S;
     d.ncol = g_gx.xf_reg[0x09] & 3;
     d.ntg = g_gx.xf_reg[0x3F] & 15;
@@ -832,6 +836,8 @@ static void efb_copy_impl(uint32_t val) {
     g_gx.stats.copies++;
     GLuint src_fbo = efb_read_fbo();
     if (to_xfb) {
+        if ((long)g_frame == g_fdump || (g_gxdbg && g_frame % 60 == 0))
+            fprintf(g_log, "[xfbcopy] frame %llu dst %08X src %d,%d %dx%d stride %d yscale %06X\n", (unsigned long long)g_frame, dst, sx, sy, w, h, (int)(bp[0x4D] & 0x3FF) * 32, bp[0x4E]);
         // finished frame
         {
             static bool flog = getenv("FRAMELOG") != nullptr;
@@ -1105,9 +1111,10 @@ static void setup_draw_state(uint8_t prim, uint32_t count, const std::vector<Vtx
     if ((long)g_frame == g_fdump && !verts.empty()) {   // FRAMEDUMP=n: one line per draw of frame n
         float x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
         for (auto& v : verts) { float w = v.pos[3] ? v.pos[3] : 1; x0 = std::min(x0, v.pos[0] / w); x1 = std::max(x1, v.pos[0] / w); y0 = std::min(y0, v.pos[1] / w); y1 = std::max(y1, v.pos[1] / w); }
-        fprintf(g_log, "[draw] prim %02X n %u x %.2f..%.2f y %.2f..%.2f tex %08X used %02X c0 %.2f %.2f %.2f %.2f cmode0 %06X zmode %06X ntev %d reg0 %.2f %.2f %.2f %.2f\n", prim, count, x0, x1, y0, y1,
+        fprintf(g_log, "[draw] prim %02X n %u x %.2f..%.2f y %.2f..%.2f tex %08X used %02X c0 %.2f %.2f %.2f %.2f cmode0 %06X zmode %06X ntev %d reg0 %.2f %.2f %.2f %.2f vp %.1f %.1f %.1f %.1f %.1f %.1f sc %06X %06X so %06X\n", prim, count, x0, x1, y0, y1,
                 ((g_gx.bp[0x94] & 0xFFFFFF) << 5) | 0x80000000u, used, verts[0].c0[0], verts[0].c0[1], verts[0].c0[2], verts[0].c0[3], g_gx.bp[0x41], g_gx.bp[0x40], ((g_gx.bp[0] >> 10) & 15) + 1,
-                g_tevreg[1][0], g_tevreg[1][1], g_tevreg[1][2], g_tevreg[1][3]);
+                g_tevreg[1][0], g_tevreg[1][1], g_tevreg[1][2], g_tevreg[1][3], xff(0x101A), xff(0x101B), xff(0x101C), xff(0x101D), xff(0x101E), xff(0x101F),
+                g_gx.bp[0x20], g_gx.bp[0x21], g_gx.bp[0x59]);
     }
     apply_state();
 }

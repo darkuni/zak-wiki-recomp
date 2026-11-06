@@ -53,6 +53,7 @@ static void bp_write(uint32_t v) {
         uint32_t m = g_gx.bp_mask;
         uint32_t nv = (g_gx.bp[reg] & ~m) | (val & m);
         if (nv != g_gx.bp[reg] || reg == 0x64 || reg == 0x65) gx_state_changing();
+        if (reg == 0x59 && nv != g_gx.bp[reg]) gx_cp_written();   // scissor offset moves the viewport
         g_gx.bp[reg] = nv;
         g_gx.bp_mask = 0xFFFFFF;
     } else {

@@ -17,6 +17,9 @@ struct Config {
     bool swap_ab_xy = false;           // gamepad: swap A<->B and X<->Y (Nintendo-style positions)
     int speed = 1;                     // game speed multiplier 1..8 (fast-forward)
     int msaa = 4;                      // anti-aliasing samples: 1 (off), 2, 4, 8
+    bool wiimote = true;               // use a real Wii Remote paired over Bluetooth when one is found
+    float ir_span = 0.55f;             // real remote: share of the IR camera's view that covers the screen
+    float motion_sensitivity = 1.0f;   // simulated motions: how far the mouse turns the remote
 };
 extern Config g_cfg;
 void config_load(const char* exe_path);
