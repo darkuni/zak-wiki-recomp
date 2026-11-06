@@ -48,7 +48,7 @@ static thread_local bool t_current = false;
 static std::atomic<int> g_ui_state{0};            // 0 starting, 1 ready, -1 failed
 std::atomic<unsigned long> g_ui_polls{0};         // UI thread heartbeat (status line)
 static bool ui_create() {
-    SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_WII, "0");   // the Wii Remote is read directly (wiimote.cpp)
+    SDL_SetHint("SDL_JOYSTICK_HIDAPI_WII", "0");   // the Wii Remote is read directly (wiimote.cpp)
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER | SDL_INIT_EVENTS) != 0) {
         fprintf(stderr, "[sdl] init failed: %s\n", SDL_GetError());
         return false;
