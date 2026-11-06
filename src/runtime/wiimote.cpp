@@ -4,8 +4,8 @@
 //   Output reports: 0x11 LEDs, 0x12 report mode, 0x13/0x1A IR enable, 0x15 status, 0x16 write, 0x17 read.
 //   Input: 0x20 status, 0x21 read data, 0x22 ack, 0x33 buttons + accel + 12 bytes of IR.
 // SDL's own Wii driver is switched off (SDL_HINT_JOYSTICK_HIDAPI_WII=0) so the remote is ours alone.
-#if defined(USE_SDL)
-#include <SDL.h>
+#if defined(_WIN32) || defined(USE_SDL)
+#include <SDL2/SDL.h>
 #include <cstdio>
 #include <cstring>
 #include <cmath>

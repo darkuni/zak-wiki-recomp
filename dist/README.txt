@@ -1,15 +1,17 @@
-Zack & Wiki: Quest for Barbaros' Treasure (Wii) - native Windows build (static recompilation)  @VERSION@
+Zack & Wiki: Quest for Barbaros' Treasure (Wii) - native Windows and Linux build (static recompilation)  @VERSION@
 https://github.com/darkuni/zak-wiki-recomp
 
 No game data is included. You need your own Zack & Wiki disc image (Wii, NTSC-U, RTZE08)
 as .iso or .ciso.
 
 Setup
-  Put your disc image (.iso or .ciso) in this folder and run zackwiki.exe. On the first start it
+  Put your disc image (.iso or .ciso) in this folder and run zackwiki.exe (Windows) or zackwiki
+  (Linux / Steam Deck: ./zackwiki, or add it to Steam as a non-Steam game). On the first start it
   builds the "game" folder from it (a few minutes - the disc is 4.4 GB); after that the disc image isn't
   needed any more.
 
-Requirements: 64-bit Windows 10/11, a GPU with OpenGL 3.3.
+Requirements: 64-bit Windows 10/11, or 64-bit Linux with SDL2 (SteamOS has it; elsewhere install
+libsdl2 / sdl2 from your package manager); a GPU with OpenGL 3.3.
 
 Controls (the mouse is the Wii Remote pointer)
   Mouse:    point = Wii Remote pointer, left button = A, right button = B ("Mouse buttons" in the
@@ -26,6 +28,8 @@ Wii Remote motions (levers, keys, saws, bells... the game shows the motion it wa
   Keyboard: Q/E = twist left/right, R/F = tilt up/down, Shift = shake
 
 Real Wii Remote (optional)
+  Linux: pair it in the Bluetooth settings too; reading it needs access to its /dev/hidraw device
+  (a udev rule, e.g. KERNEL=="hidraw*", ATTRS{idVendor}=="057e", MODE="0666").
   Pair it with Windows: Settings > Bluetooth > Add device, press the red SYNC button under the
   battery cover, pick "Nintendo RVL-CNT-01" (skip/leave the PIN empty). A Mayflash DolphinBar
   in mode 4 works too. Start the game (or wait a few seconds): LED 1 lights up and the remote's

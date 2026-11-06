@@ -16,14 +16,15 @@ works directly: buttons, motion and, with a sensor bar, the pointer.
 
 ## Download
 
-Test builds come from GitHub Actions (`ZackWiki-dev-<commit>-win64.zip`); releases will be on
-[Releases](https://github.com/darkuni/zak-wiki-recomp/releases). Unzip, put your disc image in the same folder and run
-`zackwiki.exe`: the first start builds the `game` folder from it. The zip's `README.txt` has the controls.
+Get the Windows zip or the Linux (SteamOS / Steam Deck) tar.gz from
+[Releases](https://github.com/darkuni/zak-wiki-recomp/releases) (test builds: GitHub Actions). Unpack, put your disc
+image in the same folder and run `zackwiki.exe` (Windows) or `./zackwiki` (Linux): the first start builds the `game`
+folder from it. The zip's `README.txt` has the controls.
 
 ## Building
 
 Same as the other Wii recomps (Geometry Wars: Galaxies, TARGET: Terror): the generated C++ is in `src/gen`; GitHub
-Actions cross-compiles the Windows exe with mingw-w64 and SDL2. See [NOTES.md](NOTES.md) for how the game was named,
+Actions cross-compiles the Windows exe with mingw-w64 and SDL2 and builds the Linux one with `-DUSE_SDL=ON`. See [NOTES.md](NOTES.md) for how the game was named,
 recompiled and what the runtime needed.
 
 ## Disclaimer

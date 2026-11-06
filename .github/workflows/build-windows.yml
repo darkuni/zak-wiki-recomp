@@ -1,4 +1,4 @@
-name: Build Windows
+name: Build Windows and Linux
 
 # Every push to main builds the Windows package (download it from the run's "Artifacts").
 # Publishing a GitHub Release (or pushing a v* tag) builds it and attaches the zip to the release.
@@ -60,3 +60,43 @@ jobs:
         with:
           files: ${{ env.ZIP }}
           generate_release_notes: true
+
+  linux:
+    runs-on: ubuntu-22.04   # older glibc: runs on SteamOS and most current distros
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain (CMake, Ninja, SDL2, OpenGL)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake ninja-build g++ libsdl2-dev libgl-dev
+
+      - name: Build
+        working-directory: src
+        run: |
+          cmake -S . -B build-linux -G Ninja -DUSE_SDL=ON
+          ninja -C build-linux -j3
+
+      - name: Package
+        run: |
+          V=${GITHUB_REF_NAME}
+          [[ "$GITHUB_REF" == refs/tags/* ]] || V=dev-${GITHUB_SHA::7}
+          P=ZackWiki
+          mkdir -p pkg/$P
+          cp src/build-linux/zackwiki src/runtime/ipl-font-licenses.txt dist/README.txt LICENSE THIRD_PARTY_NOTICES.md pkg/$P/
+          strip pkg/$P/zackwiki
+          sed -i "s/@VERSION@/$V/" pkg/$P/README.txt
+          tar -C pkg -czf ZackWiki-$V-linux-x64.tar.gz $P
+          echo "TGZ=ZackWiki-$V-linux-x64.tar.gz" >> $GITHUB_ENV
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.TGZ }}
+          path: ${{ env.TGZ }}
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.TGZ }}
