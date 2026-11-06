@@ -5,6 +5,7 @@
 //     their destination address; EFB->XFB copies are the finished frames.
 #ifndef _WIN32
 #define GL_GLEXT_PROTOTYPES
+#include <cstddef>
 #include <GL/gl.h>
 #include <GL/glext.h>
 #else
